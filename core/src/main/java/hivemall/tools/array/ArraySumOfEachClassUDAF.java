@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package hivemall.ftvec.selection;
+package hivemall.tools.array;
 
 import hivemall.utils.hadoop.HiveUtils;
 import hivemall.utils.lang.Preconditions;
