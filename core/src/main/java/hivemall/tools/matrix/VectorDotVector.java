@@ -18,9 +18,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import java.util.ArrayList;
 import java.util.List;
 
-@Description(name = "array_dot_array",
-        value = "_FUNC_(array<number> array0, array<number> array1) - Returns matrix as array<array<double>>")
-public class ArrayDotArrayUDF extends GenericUDF {
+@Description(name = "vector_dot_vector",
+        value = "_FUNC_(array<number> vector0, array<number> vector1) - Returns matrix as array<array<double>>")
+public class VectorDotVector extends GenericUDF {
     private ListObjectInspector vector0OI;
     private ListObjectInspector vector1OI;
     private DoubleObjectInspector vector0ElOI;
@@ -35,12 +35,12 @@ public class ArrayDotArrayUDF extends GenericUDF {
         if (!HiveUtils.isListOI(OIs[0])||
                 !HiveUtils.isNumberOI(((ListObjectInspector)OIs[0]).getListElementObjectInspector())) {
             throw new UDFArgumentTypeException(0, "Only array<number> type argument is acceptable but "
-                    + OIs[0].getTypeName() + " was passed as `array0`");
+                    + OIs[0].getTypeName() + " was passed as `vector0`");
         }
         if (!HiveUtils.isListOI(OIs[1])||
                 !HiveUtils.isNumberOI(((ListObjectInspector)OIs[1]).getListElementObjectInspector())) {
             throw new UDFArgumentTypeException(1, "Only array<number> type argument is acceptable but "
-                    + OIs[1].getTypeName() + " was passed as `array1`");
+                    + OIs[1].getTypeName() + " was passed as `vector1`");
         }
 
         vector0OI=(ListObjectInspector)OIs[0];
@@ -60,12 +60,12 @@ public class ArrayDotArrayUDF extends GenericUDF {
 
         List<List<DoubleWritable>> result = new ArrayList<List<DoubleWritable>>();
         for(Object o1:vector1){
-            List<DoubleWritable> row = new ArrayList<DoubleWritable>();
+            List<DoubleWritable> vector = new ArrayList<DoubleWritable>();
             for(Object o0: vector0){
-                row.add(new DoubleWritable(
+                vector.add(new DoubleWritable(
                         vector0ElOI.get(o0)*vector1ElOI.get(o1)));
             }
-            result.add(row);
+            result.add(vector);
         }
         return result;
     }
@@ -73,7 +73,7 @@ public class ArrayDotArrayUDF extends GenericUDF {
     @Override
     public String getDisplayString(String[] children) {
         StringBuilder sb = new StringBuilder();
-        sb.append("array_dot_array");
+        sb.append("vector_dot_vector");
         sb.append("(");
         if (children.length > 0) {
             sb.append(children[0]);
