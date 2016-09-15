@@ -82,7 +82,7 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
 
     private static class ArraySumOfEachClassUDAFEvaluator extends GenericUDAFEvaluator {
         // PARTIAL1 and COMPLETE
-        private PrimitiveObjectInspector labelOI;
+        private DoubleObjectInspector labelOI;
         private ListObjectInspector arrayOI;
         private DoubleObjectInspector sumOI;
 
@@ -121,7 +121,7 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
             super.init(mode, OIs);
 
             if (mode == Mode.PARTIAL1 || mode == Mode.COMPLETE) {
-                labelOI = HiveUtils.asDoubleCompatibleOI(OIs[0]);
+                labelOI = (DoubleObjectInspector) (OIs[0]);
                 arrayOI = (StandardListObjectInspector) OIs[1];
                 sumOI = (DoubleObjectInspector) arrayOI.getListElementObjectInspector();
             } else {
@@ -171,7 +171,7 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
             }
 
             ArraySumOfEachClassAggregationBuffer myagg = (ArraySumOfEachClassAggregationBuffer) agg;
-            double clazz = PrimitiveObjectInspectorUtils.getDouble(parameters[0], labelOI);
+            double clazz = labelOI.get(parameters[0]);
             double[] array = HiveUtils.asDoubleArray(parameters[1], arrayOI, sumOI);
 
             if (array == null) {
