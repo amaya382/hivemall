@@ -157,9 +157,10 @@ public final class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
             TransposeAndDotAggregationBuffer myAgg = (TransposeAndDotAggregationBuffer) agg;
 
             List matrix = aggMatrixOI.getList(other);
-            int n = matrix.size();
+            final int n = matrix.size();
+            final double[] row =new double[ aggMatrixRowOI.getListLength(matrix.get(0))];
             for (int i = 0; i < n; i++) {
-                double[] row = HiveUtils.asDoubleArray(matrix.get(i), aggMatrixRowOI, aggMatrixElOI);
+                HiveUtils.toDoubleArray(matrix.get(i), aggMatrixRowOI, aggMatrixElOI,row,false);
 
                 if (myAgg.aggMatrix == null) {
                     myAgg.init(n, row.length);
