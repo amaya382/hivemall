@@ -12,16 +12,14 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import javax.annotation.Nonnull;
 
-@Description(name = "chi2",
-        value = "_FUNC_(array<number> expected, array<number> observed) - Returns p-value as double")
-public class Chi2UDF extends GenericUDF {
+@Description(name = "",
+        value = "_FUNC_(array<number> expected, array<number> observed) - Returns dissociation degree as double")
+public abstract class DissociationDegreeUDF extends GenericUDF {
     private ListObjectInspector expectedOI;
     private DoubleObjectInspector expectedElOI;
     private ListObjectInspector observedOI;
@@ -55,22 +53,22 @@ public class Chi2UDF extends GenericUDF {
 
     @Override
     public Object evaluate(GenericUDF.DeferredObject[] dObj) throws HiveException {
-        double[] expected = HiveUtils.asDoubleArray(dObj[0].get(),expectedOI,expectedElOI);
-        double[] observed = HiveUtils.asDoubleArray(dObj[1].get(),observedOI,observedElOI);
+        final double[] expected = HiveUtils.asDoubleArray(dObj[0].get(),expectedOI,expectedElOI);
+        final double[] observed = HiveUtils.asDoubleArray(dObj[1].get(),observedOI,observedElOI);
 
         Preconditions.checkNotNull(expected);
         Preconditions.checkNotNull(observed);
         Preconditions.checkArgument(expected.length == observed.length);
 
-        double pVal = StatsUtils.chiSquare(expected,observed);
+        final double dissociation = calcDissociation(expected,observed);
 
-        return new DoubleWritable(pVal);
+        return new DoubleWritable(dissociation);
     }
 
     @Override
     public String getDisplayString(String[] children) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("chi2");
+        final StringBuilder sb = new StringBuilder();
+        sb.append(getFuncName());
         sb.append("(");
         if (children.length > 0) {
             sb.append(children[0]);
@@ -82,4 +80,9 @@ public class Chi2UDF extends GenericUDF {
         sb.append(")");
         return sb.toString();
     }
+
+    abstract double calcDissociation(@Nonnull final double[] expected,@Nonnull final  double[] observed);
+
+    @Nonnull
+    abstract String getFuncName();
 }

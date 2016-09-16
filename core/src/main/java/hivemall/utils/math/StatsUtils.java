@@ -191,7 +191,11 @@ public final class StatsUtils {
         return 1.d - numerator / denominator;
     }
 
-
+    /**
+     * @param expected mean vector whose value is expected
+     * @param observed mean vector whose value is observed
+     * @return chi2-value
+     */
     public static double chiSquare(@Nonnull final double[] expected, @Nonnull final double[] observed) {
         Preconditions.checkArgument(expected.length == observed.length);
 
@@ -226,6 +230,11 @@ public final class StatsUtils {
         return sumSq;
     }
 
+    /**
+     * @param expected means vector whose value is expected
+     * @param observed means vector whose value is observed
+     * @return p-value
+     */
     public static double chiSquareTest(@Nonnull final double[] expected,@Nonnull final double[] observed) {
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, (double)expected.length - 1.0D);
         return 1.0D - distribution.cumulativeProbability(chiSquare(expected, observed));
