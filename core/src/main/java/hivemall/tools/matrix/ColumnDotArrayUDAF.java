@@ -13,10 +13,12 @@ import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,10 +53,10 @@ public class ColumnDotArrayUDAF extends AbstractGenericUDAFResolver {
     private static class ColumnDotArrayGenericUDAFEvaluator extends GenericUDAFEvaluator {
         // common
         private ListObjectInspector rowOI;
-        private DoubleObjectInspector rowElOI;
+        private PrimitiveObjectInspector rowElOI;
 
         // PARTIAL1 and COMPLETE
-        private DoubleObjectInspector colOI;
+        private PrimitiveObjectInspector colOI;
 
         // PARTIAL2 and FINAL
         private StructObjectInspector structOI;
@@ -84,9 +86,9 @@ public class ColumnDotArrayUDAF extends AbstractGenericUDAFResolver {
             super.init(mode, OIs);
 
             if (mode == Mode.PARTIAL1 || mode == Mode.COMPLETE) {
-                colOI = (DoubleObjectInspector) OIs[0];
+                colOI = HiveUtils.asDoubleCompatibleOI(OIs[0]);
                 rowOI = (ListObjectInspector) OIs[1];
-                rowElOI = (DoubleObjectInspector)rowOI.getListElementObjectInspector();
+                rowElOI =  HiveUtils.asDoubleCompatibleOI(rowOI.getListElementObjectInspector());
             } else {
                 structOI = (StructObjectInspector)OIs[0];
                 rowField=structOI.getStructFieldRef("row");
@@ -140,12 +142,12 @@ public class ColumnDotArrayUDAF extends AbstractGenericUDAFResolver {
                 int length = rowList.size();
                 double[] row = new double[length];
                 for (int i = 0; i < length; i++) {
-                    row[i] = rowElOI.get(rowList.get(i));
+                    row[i] =PrimitiveObjectInspectorUtils.getDouble(rowList.get(i),rowElOI);
                 }
                 myagg.row = row;
             }
 
-            double val = colOI.get(parameters[0]);
+            double val = PrimitiveObjectInspectorUtils.getDouble(parameters[0],colOI);
             double[] newRow = new double[myagg.row.length];
             for(int i=0;i<myagg.row.length;i++){
                 newRow[i]=myagg.row[i]*val;
@@ -162,7 +164,7 @@ public class ColumnDotArrayUDAF extends AbstractGenericUDAFResolver {
 
             double[] row =new double[rowList.size()];
             for(int i=0;i<rowList.size();i++){
-                row[i]=rowElOI.get(rowList.get(i));
+                row[i]=PrimitiveObjectInspectorUtils.getDouble(rowList.get(i),rowElOI);
             }
             myagg.row=row;
 
@@ -172,7 +174,7 @@ public class ColumnDotArrayUDAF extends AbstractGenericUDAFResolver {
                 for(int i=0;i<myagg.row.length;i++){
                     ds[i]=matrixRowElOI.get( matrixRow.get(i));
                 }
-                myagg.matrix.add(ds); // TODO: order
+                myagg.matrix.add(ds); // TODO[CRITICAL]: order
             }
         }
 
