@@ -12,6 +12,7 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
@@ -19,11 +20,14 @@ import javax.annotation.Nonnull;
 
 @Description(name = "",
         value = "_FUNC_(array<number> expected, array<number> observed) - Returns dissociation degree as double")
-public abstract class DissociationDegreeUDF extends GenericUDF {
+abstract class DissociationDegreeUDF extends GenericUDF {
     private ListObjectInspector expectedOI;
-    private DoubleObjectInspector expectedElOI;
+    private PrimitiveObjectInspector expectedElOI;
     private ListObjectInspector observedOI;
-    private DoubleObjectInspector observedElOI;
+    private PrimitiveObjectInspector observedElOI;
+
+    private double[] expected;
+    private double[] observed;
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] OIs) throws UDFArgumentException {
@@ -31,38 +35,38 @@ public abstract class DissociationDegreeUDF extends GenericUDF {
             throw new UDFArgumentLengthException("Specify two arguments.");
         }
 
-        if (!HiveUtils.isListOI(OIs[0])
-                || !HiveUtils.isNumberOI(((ListObjectInspector) OIs[0]).getListElementObjectInspector())){
+        if (!HiveUtils.isNumberListOI(OIs[0])){
             throw new UDFArgumentTypeException(0, "Only array<number> type argument is acceptable but "
                     + OIs[0].getTypeName() + " was passed as `expected`");
         }
 
-        if (!HiveUtils.isListOI(OIs[1])
-                || !HiveUtils.isNumberOI(((ListObjectInspector) OIs[1]).getListElementObjectInspector())){
+        if (!HiveUtils.isNumberListOI(OIs[1])){
             throw new UDFArgumentTypeException(1, "Only array<number> type argument is acceptable but "
                     + OIs[1].getTypeName() + " was passed as `observed`");
         }
 
-        expectedOI = (ListObjectInspector) OIs[0];
-        expectedElOI = (DoubleObjectInspector) expectedOI.getListElementObjectInspector();
-        observedOI = (ListObjectInspector) OIs[1];
-        observedElOI = (DoubleObjectInspector) observedOI.getListElementObjectInspector();
+        expectedOI =  HiveUtils.asListOI(OIs[0]);
+        expectedElOI = HiveUtils.asDoubleCompatibleOI(expectedOI.getListElementObjectInspector());
+        observedOI = HiveUtils.asListOI(OIs[1]);
+        observedElOI = HiveUtils.asDoubleCompatibleOI( observedOI.getListElementObjectInspector());
 
         return PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
     }
 
     @Override
     public Object evaluate(GenericUDF.DeferredObject[] dObj) throws HiveException {
-        final double[] expected = HiveUtils.asDoubleArray(dObj[0].get(),expectedOI,expectedElOI);
-        final double[] observed = HiveUtils.asDoubleArray(dObj[1].get(),observedOI,observedElOI);
-
-        Preconditions.checkNotNull(expected);
-        Preconditions.checkNotNull(observed);
+        if(expected==null){
+           expected=new double[ expectedOI.getListLength(dObj[0].get())];
+        }
+        if(observed==null){
+            observed=new double[ observedOI.getListLength(dObj[1].get())];
+        }
         Preconditions.checkArgument(expected.length == observed.length);
 
-        final double dissociation = calcDissociation(expected,observed);
+        HiveUtils.toDoubleArray(dObj[0].get(),expectedOI,expectedElOI,expected,false);
+        HiveUtils.toDoubleArray(dObj[1].get(),observedOI,observedElOI,observed, false);
 
-        return new DoubleWritable(dissociation);
+        return new DoubleWritable(calcDissociation(expected,observed));
     }
 
     @Override
