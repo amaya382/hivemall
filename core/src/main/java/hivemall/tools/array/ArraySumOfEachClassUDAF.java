@@ -43,6 +43,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspe
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableDoubleObjectInspector;
 import org.apache.hadoop.io.IntWritable;
 
 import java.util.ArrayList;
@@ -80,11 +81,12 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
         return new ArraySumOfEachClassUDAFEvaluator();
     }
 
+    // TODO: string key
     private static class ArraySumOfEachClassUDAFEvaluator extends GenericUDAFEvaluator {
         // PARTIAL1 and COMPLETE
-        private DoubleObjectInspector labelOI;
+        private PrimitiveObjectInspector labelOI;
         private ListObjectInspector arrayOI;
-        private DoubleObjectInspector sumOI;
+        private PrimitiveObjectInspector sumOI;
 
         // PARTIAL2 and FINAL
         private StructObjectInspector structOI;
@@ -121,9 +123,9 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
             super.init(mode, OIs);
 
             if (mode == Mode.PARTIAL1 || mode == Mode.COMPLETE) {
-                labelOI = (DoubleObjectInspector) (OIs[0]);
+                labelOI =  HiveUtils.asDoubleCompatibleOI(OIs[0]);
                 arrayOI = (StandardListObjectInspector) OIs[1];
-                sumOI = (DoubleObjectInspector) arrayOI.getListElementObjectInspector();
+                sumOI = HiveUtils.asDoubleCompatibleOI(arrayOI.getListElementObjectInspector());
             } else {
                 structOI = (StandardStructObjectInspector) OIs[0];
                 sumOfEachClassField = structOI.getStructFieldRef("sumOfEachClass");
@@ -171,7 +173,7 @@ public class ArraySumOfEachClassUDAF extends AbstractGenericUDAFResolver {
             }
 
             ArraySumOfEachClassAggregationBuffer myagg = (ArraySumOfEachClassAggregationBuffer) agg;
-            double clazz = labelOI.get(parameters[0]);
+            double clazz =PrimitiveObjectInspectorUtils.getDouble(parameters[0],labelOI);
             double[] array = HiveUtils.asDoubleArray(parameters[1], arrayOI, sumOI);
 
             if (array == null) {
