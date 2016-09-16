@@ -24,31 +24,31 @@ import java.util.Arrays;
 import java.util.List;
 
 @Description(name = "transpose_and_dot",
-        value = "_FUNC_(array<number> matrix0_row|single_vector0, array<double> matrix1_row|single_vector1)" +
+        value = "_FUNC_(array<number> matrix0_row, array<number> matrix1_row)" +
                 " - Returns dot(matrix0.T, matrix1) as array<array<double>>, shape = (matrix0.#cols, matrix1.#cols)")
-public class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
+public final class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
     @Override
     public GenericUDAFEvaluator getEvaluator(GenericUDAFParameterInfo info) throws SemanticException {
         ObjectInspector[] OIs = info.getParameterObjectInspectors();
 
         if (OIs.length != 2) {
-            throw new UDFArgumentLengthException("Specify 2 arguments.");
+            throw new UDFArgumentLengthException("Specify two arguments.");
         }
 
         if (!HiveUtils.isNumberListOI(OIs[0])) {
-            throw new UDFArgumentTypeException(0, "Only array<double> type argument is acceptable but "
+            throw new UDFArgumentTypeException(0, "Only array<number> type argument is acceptable but "
                     + OIs[0].getTypeName() + " was passed as `matrix0_row`");
         }
 
         if (!HiveUtils.isNumberListOI(OIs[1])) {
-            throw new UDFArgumentTypeException(1, "Only array<double> type argument is acceptable but "
+            throw new UDFArgumentTypeException(1, "Only array<number> type argument is acceptable but "
                     + OIs[1].getTypeName() + " was passed as `matrix1_row`");
         }
 
         return new TransposeAndDotUDAFEvaluator();
     }
 
-    private static class TransposeAndDotUDAFEvaluator extends GenericUDAFEvaluator {
+    private static final class TransposeAndDotUDAFEvaluator extends GenericUDAFEvaluator {
         // PARTIAL1 and COMPLETE
         private ListObjectInspector matrix0RowOI;
         private PrimitiveObjectInspector matrix0ElOI;
@@ -59,6 +59,9 @@ public class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
         private ListObjectInspector aggMatrixOI;
         private ListObjectInspector aggMatrixRowOI;
         private DoubleObjectInspector aggMatrixElOI;
+
+        private double[] matrix0Row;
+        private double[] matrix1Row;
 
         @AggregationType(estimable = true)
         static class TransposeAndDotAggregationBuffer extends AbstractAggregationBuffer {
@@ -89,14 +92,14 @@ public class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
             super.init(mode, OIs);
 
             if (mode == Mode.PARTIAL1 || mode == Mode.COMPLETE) {
-                matrix0RowOI = (ListObjectInspector) OIs[0];
+                matrix0RowOI = HiveUtils.asListOI( OIs[0]);
                 matrix0ElOI = HiveUtils.asDoubleCompatibleOI(matrix0RowOI.getListElementObjectInspector());
-                matrix1RowOI = (ListObjectInspector) OIs[1];
+                matrix1RowOI = HiveUtils.asListOI(OIs[1]);
                 matrix1ElOI = HiveUtils.asDoubleCompatibleOI(matrix1RowOI.getListElementObjectInspector());
             } else {
-                aggMatrixOI = (ListObjectInspector) OIs[0];
-                aggMatrixRowOI = (ListObjectInspector) aggMatrixOI.getListElementObjectInspector();
-                aggMatrixElOI = (DoubleObjectInspector) aggMatrixRowOI.getListElementObjectInspector();
+                aggMatrixOI =  HiveUtils.asListOI( OIs[0]);
+                aggMatrixRowOI =  HiveUtils.asListOI(aggMatrixOI.getListElementObjectInspector());
+                aggMatrixElOI = HiveUtils.asDoubleOI(aggMatrixRowOI.getListElementObjectInspector());
             }
 
             return ObjectInspectorFactory.getStandardListObjectInspector(
@@ -121,8 +124,15 @@ public class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
         public void iterate(AggregationBuffer agg, Object[] parameters) throws HiveException {
             TransposeAndDotAggregationBuffer myAgg = (TransposeAndDotAggregationBuffer) agg;
 
-            double[] matrix0Row = HiveUtils.asDoubleArray(parameters[0], matrix0RowOI, matrix0ElOI);
-            double[] matrix1Row = HiveUtils.asDoubleArray(parameters[1], matrix1RowOI, matrix1ElOI);
+            if(matrix0Row==null){
+                matrix0Row=new double[matrix0RowOI.getListLength(parameters[0])];
+            }
+            if(matrix1Row==null){
+                matrix1Row=new double[matrix1RowOI.getListLength(parameters[1])];
+            }
+
+            HiveUtils.toDoubleArray(parameters[0], matrix0RowOI, matrix0ElOI, matrix0Row, false);
+            HiveUtils.toDoubleArray(parameters[1], matrix1RowOI, matrix1ElOI, matrix1Row, false);
 
             Preconditions.checkNotNull(matrix0Row);
             Preconditions.checkNotNull(matrix1Row);
@@ -147,11 +157,12 @@ public class TransposeAndDotUDAF extends AbstractGenericUDAFResolver {
             TransposeAndDotAggregationBuffer myAgg = (TransposeAndDotAggregationBuffer) agg;
 
             List matrix = aggMatrixOI.getList(other);
-            for (int i = 0; i < matrix.size(); i++) {
+            int n = matrix.size();
+            for (int i = 0; i < n; i++) {
                 double[] row = HiveUtils.asDoubleArray(matrix.get(i), aggMatrixRowOI, aggMatrixElOI);
 
                 if (myAgg.aggMatrix == null) {
-                    myAgg.init(matrix.size(), row.length);
+                    myAgg.init(n, row.length);
                 }
 
                 for (int j = 0; j < row.length; j++) {
