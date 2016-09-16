@@ -65,17 +65,16 @@ public class OccurrenceProbUDAF extends AbstractGenericUDAFResolver {
     }
 
     private static class OccurrenceProbGenericUDAFEvaluator extends GenericUDAFEvaluator {
-        // declare local OIs for PARTIAL1 and COMPLETE: OIs for a original data
+        // PARTIAL1 and COMPLETE
         private PrimitiveObjectInspector labelOI;
 
-        // declare local OIs for PARTIAL2 and FINAL: OIs for partial aggregations
+        // PARTIAL2 and FINAL
         private MapObjectInspector countTableOI;
         private StringObjectInspector classOI;
         private LongObjectInspector countOI;
 
         @AggregationType(estimable = true)
         static class OccurrenceProbAggregationBuffer extends AbstractAggregationBuffer {
-            // declare variables for buffering
             Map<String, Long> countTable;
 
             @Override
@@ -109,21 +108,22 @@ public class OccurrenceProbUDAF extends AbstractGenericUDAFResolver {
                     PrimitiveObjectInspectorFactory.writableStringObjectInspector,
                     PrimitiveObjectInspectorFactory.writableLongObjectInspector);
             } else {
-                return ObjectInspectorFactory.getStandardListObjectInspector(PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
+                return ObjectInspectorFactory.getStandardListObjectInspector(
+                        PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
             }
         }
 
         @Override
         public AbstractAggregationBuffer getNewAggregationBuffer() throws HiveException {
-            OccurrenceProbAggregationBuffer agg = new OccurrenceProbAggregationBuffer();
-            reset(agg);
-            return agg;
+            OccurrenceProbAggregationBuffer myAgg = new OccurrenceProbAggregationBuffer();
+            reset(myAgg);
+            return myAgg;
         }
 
         @Override
         public void reset(AggregationBuffer agg) throws HiveException {
-            OccurrenceProbAggregationBuffer myagg = (OccurrenceProbAggregationBuffer) agg;
-            myagg.reset();
+            OccurrenceProbAggregationBuffer myAgg = (OccurrenceProbAggregationBuffer) agg;
+            myAgg.reset();
         }
 
         @Override
@@ -132,11 +132,11 @@ public class OccurrenceProbUDAF extends AbstractGenericUDAFResolver {
                 return;
             }
 
-            OccurrenceProbAggregationBuffer myagg = (OccurrenceProbAggregationBuffer) agg;
-            String clazz = String.valueOf(labelOI.getPrimitiveJavaObject(parameters[0])); // TODO: nullable???
+            OccurrenceProbAggregationBuffer myAgg = (OccurrenceProbAggregationBuffer) agg;
+            String clazz = String.valueOf(labelOI.getPrimitiveJavaObject(parameters[0]));
 
-            myagg.countTable.put(clazz,
-                myagg.countTable.containsKey(clazz) ? myagg.countTable.get(clazz) + 1L : 1L);
+            myAgg.countTable.put(clazz,
+                myAgg.countTable.containsKey(clazz) ? myAgg.countTable.get(clazz) + 1L : 1L);
         }
 
         @Override
@@ -145,20 +145,21 @@ public class OccurrenceProbUDAF extends AbstractGenericUDAFResolver {
                 return;
             }
 
-            OccurrenceProbAggregationBuffer myagg = (OccurrenceProbAggregationBuffer) agg;
+            OccurrenceProbAggregationBuffer myAgg = (OccurrenceProbAggregationBuffer) agg;
             Map countTable = countTableOI.getMap(other);
             for (Object key : countTable.keySet()) {
-                String clazz = String.valueOf(key);
-                myagg.countTable.put(clazz,
-                    myagg.countTable.containsKey(clazz) ? myagg.countTable.get(clazz) + 1L : 1L);
+                String clazz = classOI.getPrimitiveJavaObject(key);
+                myAgg.countTable.put(clazz,
+                        countOI.get(countTable.get(key))+
+                        (myAgg.countTable.containsKey(clazz) ? myAgg.countTable.get(clazz) + 1L : 1L));
             }
         }
 
         @Override
         public Object terminatePartial(AggregationBuffer agg) throws HiveException {
-            OccurrenceProbAggregationBuffer myagg = (OccurrenceProbAggregationBuffer) agg;
+            OccurrenceProbAggregationBuffer myAgg = (OccurrenceProbAggregationBuffer) agg;
             Map<Text, LongWritable> countTable = new HashMap<Text, LongWritable>();
-            for (Map.Entry<String, Long> e : myagg.countTable.entrySet()) {
+            for (Map.Entry<String, Long> e : myAgg.countTable.entrySet()) {
                 countTable.put(new Text(e.getKey()), new LongWritable(e.getValue()));
             }
             return countTable;
@@ -166,13 +167,13 @@ public class OccurrenceProbUDAF extends AbstractGenericUDAFResolver {
 
         @Override
         public Object terminate(AggregationBuffer agg) throws HiveException {
-            OccurrenceProbAggregationBuffer myagg = (OccurrenceProbAggregationBuffer) agg;
+            OccurrenceProbAggregationBuffer myAgg = (OccurrenceProbAggregationBuffer) agg;
 
             long all = 0L;
             List<DoubleWritable> result = new ArrayList<DoubleWritable>();
             // TODO: order or sth
-            for (String key : new TreeSet<String>(myagg.countTable.keySet())) {
-                Long count = myagg.countTable.get(key);
+            for (String key : new TreeSet<String>(myAgg.countTable.keySet())) {
+                Long count = myAgg.countTable.get(key);
                 all += count;
                 result.add(new DoubleWritable(count.doubleValue()));
             }
