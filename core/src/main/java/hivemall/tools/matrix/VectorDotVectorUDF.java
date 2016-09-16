@@ -11,20 +11,22 @@ import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StandardListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Description(name = "vector_dot_vector",
         value = "_FUNC_(array<number> vector0, array<number> vector1) - Returns matrix as array<array<double>>")
-public class VectorDotVector extends GenericUDF {
+public class VectorDotVectorUDF extends GenericUDF {
     private ListObjectInspector vector0OI;
     private ListObjectInspector vector1OI;
-    private DoubleObjectInspector vector0ElOI;
-    private DoubleObjectInspector vector1ElOI;
+    private PrimitiveObjectInspector vector0ElOI;
+    private PrimitiveObjectInspector vector1ElOI;
 
     @Override
     public ObjectInspector initialize(ObjectInspector[] OIs) throws UDFArgumentException {
@@ -45,8 +47,8 @@ public class VectorDotVector extends GenericUDF {
 
         vector0OI=(ListObjectInspector)OIs[0];
         vector1OI=(ListObjectInspector)OIs[1];
-        vector0ElOI=(DoubleObjectInspector)vector0OI.getListElementObjectInspector();
-        vector1ElOI=(DoubleObjectInspector)vector1OI.getListElementObjectInspector();
+        vector0ElOI=HiveUtils.asDoubleCompatibleOI(vector0OI.getListElementObjectInspector());
+        vector1ElOI=HiveUtils.asDoubleCompatibleOI(vector1OI.getListElementObjectInspector());
 
         return ObjectInspectorFactory.getStandardListObjectInspector(
                 ObjectInspectorFactory.getStandardListObjectInspector(
@@ -63,7 +65,8 @@ public class VectorDotVector extends GenericUDF {
             List<DoubleWritable> vector = new ArrayList<DoubleWritable>();
             for(Object o0: vector0){
                 vector.add(new DoubleWritable(
-                        vector0ElOI.get(o0)*vector1ElOI.get(o1)));
+                        PrimitiveObjectInspectorUtils.getDouble(o0,vector0ElOI)
+                                *PrimitiveObjectInspectorUtils.getDouble(o1,vector1ElOI)));
             }
             result.add(vector);
         }
