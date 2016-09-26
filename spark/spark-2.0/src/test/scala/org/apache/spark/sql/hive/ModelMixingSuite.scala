@@ -25,14 +25,14 @@ import java.util.concurrent.{ExecutorService, Executors}
 import org.apache.commons.cli.Options
 import org.apache.commons.compress.compressors.CompressorStreamFactory
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.ml.feature.HmLabeledPoint
+import org.apache.spark.ml.feature.HivemallLabeledPoint
 import org.apache.spark.sql.functions.when
 import org.apache.spark.sql.hive.HivemallOps._
 import org.apache.spark.sql.hive.HivemallUtils._
 import org.apache.spark.sql.hive.test.TestHive
 import org.apache.spark.sql.hive.test.TestHive.implicits._
 import org.apache.spark.sql.{Column, DataFrame, Row}
-import org.apache.spark.test.TestUtils.{benchmark, invokeFunc}
+import org.apache.spark.test.TestUtils
 import org.scalatest.BeforeAndAfter
 
 import hivemall.mix.server.MixServer
@@ -46,7 +46,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
   val a9aLineParser = (line: String) => {
     val elements = line.split(" ")
     val (label, features) = (elements.head, elements.tail)
-    HmLabeledPoint(if (label == "+1") 1.0f else 0.0f, features)
+    HivemallLabeledPoint(if (label == "+1") 1.0f else 0.0f, features)
   }
 
   lazy val trainA9aData: DataFrame =
@@ -63,7 +63,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
   val kdd2010aLineParser = (line: String) => {
     val elements = line.split(" ")
     val (label, features) = (elements.head, elements.tail)
-    HmLabeledPoint(if (label == "1") 1.0f else 0.0f, features)
+    HivemallLabeledPoint(if (label == "1") 1.0f else 0.0f, features)
   }
 
   lazy val trainKdd2010aData: DataFrame =
@@ -93,7 +93,8 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
   var assignedPort: Int = _
 
   private def getDataFromURI(
-      in: InputStream, lineParseFunc: String => HmLabeledPoint, numPart: Int = 2): DataFrame = {
+      in: InputStream, lineParseFunc: String => HivemallLabeledPoint, numPart: Int = 2)
+    : DataFrame = {
     val reader = new BufferedReader(new InputStreamReader(in))
     try {
       // Cache all data because stream closed soon
@@ -138,7 +139,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
     mixServExec = null
   }
 
-  benchmark("model mixing test w/ regression") {
+  TestUtils.benchmark("model mixing test w/ regression") {
     Seq(
       "train_adadelta",
       "train_adagrad",
@@ -154,7 +155,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
       // Build a model
       val model = {
         val groupId = s"${TestHive.sparkContext.applicationId}-${UUID.randomUUID}"
-        val res = invokeFunc(new HivemallOps(trainA9aData.part_amplify(1)), func,
+        val res = TestUtils.invokeFunc(new HivemallOps(trainA9aData.part_amplify(1)), func,
           Seq[Column](add_bias($"features"), $"label",
             s"-mix localhost:${assignedPort} -mix_session ${groupId} -mix_threshold 2 -mix_cancel"))
         if (!res.columns.contains("conv")) {
@@ -198,7 +199,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
     }
   }
 
-  benchmark("model mixing test w/ binary classification") {
+  TestUtils.benchmark("model mixing test w/ binary classification") {
     Seq(
       "train_perceptron",
       "train_pa",
@@ -214,7 +215,7 @@ final class ModelMixingSuite extends SparkFunSuite with BeforeAndAfter {
       // Build a model
       val model = {
         val groupId = s"${TestHive.sparkContext.applicationId}-${UUID.randomUUID}"
-        val res = invokeFunc(new HivemallOps(trainKdd2010aData.part_amplify(1)), func,
+        val res = TestUtils.invokeFunc(new HivemallOps(trainKdd2010aData.part_amplify(1)), func,
           Seq[Column](add_bias($"features"), $"label",
             s"-mix localhost:${assignedPort} -mix_session ${groupId} -mix_threshold 2 -mix_cancel"))
         if (!res.columns.contains("conv")) {

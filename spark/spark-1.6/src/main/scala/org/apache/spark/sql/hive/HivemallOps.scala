@@ -20,7 +20,7 @@ package org.apache.spark.sql.hive
 import java.util.UUID
 
 import org.apache.spark.Logging
-import org.apache.spark.ml.feature.HmFeature
+import org.apache.spark.ml.feature.HivemallFeature
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
 import org.apache.spark.sql.catalyst.expressions.{Expression, Literal, NamedExpression}
@@ -30,10 +30,7 @@ import org.apache.spark.sql.hive.HiveShim.HiveFunctionWrapper
 import org.apache.spark.sql.types._
 
 /**
- * A wrapper of hivemall for DataFrame.
- * This class only supports the parts of functions available in `scripts/ddl/define-udfs.sh`.
- * Those who'd like to use more functions this class does not support
- * let us know in a github issue tracker.
+ * Hivemall wrapper and some utility functions for DataFrame.
  *
  * @groupname regression
  * @groupname classifier
@@ -628,7 +625,7 @@ final class HivemallOps(df: DataFrame) extends Logging {
   def explode_array(expr: Column): DataFrame = {
     df.explode(expr) { case Row(v: Seq[_]) =>
       // Type erasure removes the component type in Seq
-      v.map(s => HmFeature(s.asInstanceOf[String]))
+      v.map(s => HivemallFeature(s.asInstanceOf[String]))
     }
   }
 
@@ -640,13 +637,13 @@ final class HivemallOps(df: DataFrame) extends Logging {
    * @group misc
    */
   def each_top_k(k: Column, group: Column, value: Column, args: Column*): DataFrame = {
+    val clusterDf = df.repartition(group).sortWithinPartitions(group)
     Generate(HiveGenericUDTF(
       new HiveFunctionWrapper("hivemall.tools.EachTopKUDTF"),
       (Seq(k, group, value) ++ args).map(_.expr)),
     join = false, outer = false, None,
     (Seq("rank", "key") ++ args.map(_.named.name)).map(UnresolvedAttribute(_)),
-    // Repartition rows by the given `group` column
-    df.repartition(group).logicalPlan)
+    clusterDf.logicalPlan)
   }
 
   /**
