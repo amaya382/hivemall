@@ -77,6 +77,20 @@ public class ArraySumOfEachClassUDAFTest {
 
 
     @Test
+    public void payoo() throws Exception {
+        List<String> res = hRunner.exec(HQ.fromStatement("" +
+                "WITH iris AS (" +
+                "  SELECT array(a, b, c, d) AS X, array(c0, c1, c2) AS Y FROM iris0" +
+                ")" +
+                "SELECT snr(X, Y)" +
+                "FROM iris"));
+        for(String s:res){
+            System.out.println(s);
+        }
+    }
+
+
+    @Test
     public void piyo() throws Exception {
         List<String> res = hRunner.exec(HQ.fromStatement("" +
                 "WITH iris AS (" +

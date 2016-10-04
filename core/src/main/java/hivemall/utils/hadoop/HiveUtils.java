@@ -49,12 +49,8 @@ import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.lazy.LazyInteger;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.lazy.LazyString;
-import org.apache.hadoop.hive.serde2.objectinspector.ConstantObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.*;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BinaryObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.DoubleObjectInspector;
@@ -162,6 +158,15 @@ public final class HiveUtils {
         return Arrays.asList(ary);
     }
 
+    @Nonnull
+    public static StructObjectInspector asStructOI(@Nonnull final ObjectInspector oi)
+            throws UDFArgumentException {
+        if (oi.getCategory() != Category.STRUCT) {
+            throw new UDFArgumentException("Expected Struct OI but got: " + oi.getTypeName());
+        }
+        return (StructObjectInspector) oi;
+    }
+
     public static boolean isPrimitiveOI(@Nonnull final ObjectInspector oi) {
         return oi.getCategory() == Category.PRIMITIVE;
     }
@@ -239,6 +244,10 @@ public final class HiveUtils {
     public static boolean isNumberListListOI(@Nonnull final ObjectInspector oi) {
         return isListOI(oi)
                 && isNumberListOI(((ListObjectInspector) oi).getListElementObjectInspector());
+    }
+
+    public static boolean isMapOI(@Nonnull final ObjectInspector oi) {
+        return oi.getCategory() == Category.MAP;
     }
 
     public static boolean isPrimitiveTypeInfo(@Nonnull TypeInfo typeInfo) {
@@ -794,6 +803,15 @@ public final class HiveUtils {
             throw new UDFArgumentException("Expected List OI but was: " + oi);
         }
         return (ListObjectInspector) oi;
+    }
+
+    @Nonnull
+    public static MapObjectInspector asMapOI(@Nonnull final ObjectInspector oi)
+            throws UDFArgumentException {
+        if (oi.getCategory() != Category.MAP) {
+            throw new UDFArgumentException("Expected Map OI but was: " + oi);
+        }
+        return (MapObjectInspector) oi;
     }
 
     public static void validateFeatureOI(@Nonnull final ObjectInspector oi)
